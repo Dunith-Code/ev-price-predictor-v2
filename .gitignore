@@ -1,0 +1,20 @@
+# .gitignore
+venv/
+ev/
+__pycache__/
+*.pyc
+*.pkl
+*.db
+*.log
+.env
+.DS_Store
+data/processed/
+data/interim/
+models/artifacts/
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
