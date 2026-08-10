@@ -195,9 +195,9 @@ class ModelTrainer:
 
             #Log model to MLflow
             mlflow.sklearn.log_model(
-                self.best_model,
-                artifact_path="ev_model",
-                registered_model_name=f"EV_Price_Predictor_{self.model_type.upper()}"
+                sk_model=self.best_model,
+                name="ev_model",
+                registered_model_name=f"EV_Price_Predictor_{self.model_type.upper()}",
                 skops_trusted_types=None
             )
 
@@ -207,10 +207,8 @@ class ModelTrainer:
             return self.metrics
 
 def save_model(self, filepath: str) -> None:
-
     if self.best_model is None:
         raise ValueError("No model trained. Call train() first.")
-    
     filepath = Path(filepath)
     filepath.parent.mkdir(parents=True, exist_ok=True)
 
@@ -225,10 +223,8 @@ def save_model(self, filepath: str) -> None:
         logger.info(f"Scaler saved to {scaler_path}")
 
 def get_model_info(self) -> Dict:
-
     if self.best_model is None:
         return {"error": "No model trained yet"}
-
     return {
         "model_type": self.model_type,
         "run_id": self.run_id,
