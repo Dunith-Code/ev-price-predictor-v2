@@ -216,6 +216,11 @@ class ModelTrainer:
 
             return self.metrics
 
+        if self.metrics:
+            return self.metrics
+        else:
+            raise RuntimeError("Training did not produce metrics. Check for errors in the training run.")
+
     def save_model(self, filepath: str) -> None:
         if self.best_model is None:
             raise ValueError("No model trained. Call train() first.")
