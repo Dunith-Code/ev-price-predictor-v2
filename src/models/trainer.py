@@ -198,6 +198,7 @@ class ModelTrainer:
                 self.best_model,
                 artifact_path="ev_model",
                 registered_model_name=f"EV_Price_Predictor_{self.model_type.upper()}"
+                skops_trusted_types=None
             )
 
             logger.info(f"Training complete. R2: {r2:.4f}, MAE: ${mae:.2f}")
