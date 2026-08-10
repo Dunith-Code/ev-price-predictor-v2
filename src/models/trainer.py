@@ -148,10 +148,10 @@ class ModelTrainer:
             X, y, test_size=test_size, random_state=random_state, shuffle=True
         )
 
-            #Impute NaN using training data only
+        #Impute NaN using training data only
         imputer = SimpleImputer(strategy='median')
-        X_train_imputed = imputer.fit_transform(X_train)
-        X_test_imputed = imputer.transform(X_test)
+        X_train = imputer.fit_transform(X_train)   # numpy array
+        X_test = imputer.transform(X_test)         # numpy array
 
         #Scale feature if requested
         if scale_features:
