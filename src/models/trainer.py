@@ -194,18 +194,27 @@ class ModelTrainer:
                 'rmse': rmse
             }
 
+            mlflow.log_metrics(self.metrics)
+
             #Log model to MLflow
-            mlflow.sklearn.log_model(
-                sk_model=self.best_model,
-                name="ev_model",
-                registered_model_name=f"EV_Price_Predictor_{self.model_type.upper()}",
-                skops_trusted_types=None
-            )
+            if self.model_type == 'xgboost':
+                mlflow.xgboost.log_model(
+                    xgb_model=self.best_model,
+                    artifact_path="ev_model",
+                    registered_model_name="EV_Price_Predictor_XGBOOST"
+                )
+            else:
+                mlflow.sklearn.log_model(
+                    sk_model=self.best_model,
+                    artifact_path="ev_model",
+                    registered_model_name=f"EV_Price_Predictor_{self.model_type.upper()}",
+                    skops_trusted_types=None
+                )
 
-            logger.info(f"Training complete. R2: {r2:.4f}, MAE: ${mae:.2f}")
-            logger.info(f"Model log to MLflow with run_id: {self.run_id}")
+                logger.info(f"Training complete. R2: {r2:.4f}, MAE: ${mae:.2f}")
+                logger.info(f"Model log to MLflow with run_id: {self.run_id}")
 
-            return self.metrics
+                return self.metrics
 
     def save_model(self, filepath: str) -> None:
         if self.best_model is None:
