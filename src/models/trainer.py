@@ -17,6 +17,10 @@ from typing import Dict, Any, Optional, Tuple
 import json
 import logging
 import mlflow.xgboost
+from sklearn.impute import SimpleImputer
+
+import os
+os.environ["MLFLOW_ALLOW_FILE_STORE"] = "true"
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -42,9 +46,29 @@ class ModelTrainer:
         if tracking_uri:
             mlflow.set_tracking_uri(tracking_uri)
 
-        #Create or get MLflow experiment
+        # Create or get experiment
         mlflow.set_experiment(experiment_name)
         logger.info(f"ModelTrainer initialized with experiment '{experiment_name}' and model type '{model_type}'.")
+
+    #Display past runs (optional)
+    def display_past_runs(self, n: int = 5):
+        """Fetch and display recent runs from the experiment."""
+        try:
+            experiment = mlflow.get_experiment_by_name(self.experiment_name)
+            if experiment:
+                runs = mlflow.search_runs(experiment_ids=[experiment.experiment_id], max_results=n)
+                cols = ['run_id', 'tags.mlflow.runName', 'metrics.r2', 'metrics.mae', 'metrics.rmse']
+                display_cols = [c for c in cols if c in runs.columns]
+                if display_cols:
+                    print("\n Recent MLflow runs:")
+                    print(runs[display_cols].to_string(index=False))
+                else:
+                    print("No metrics found in past runs.")
+            else:
+                print("No experiment found.")
+        except Exception as e:
+            logger.warning(f"Could not display past runs: {e}")
+
 
     def _get_model(self, params: Optional[Dict] = None) -> object:
         if params is None:
@@ -118,15 +142,16 @@ class ModelTrainer:
         y = df[target_col]
 
         X = X.replace([np.inf, -np.inf], np.nan)
-        nan_counts = X.isna().sum()
-        if nan_counts.any():
-            logger.warning(f"NaNs found in features, imputing with column median:\n{nan_counts[nan_counts > 0]}")
-            X = X.fillna(X.median())
 
         #Split
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=test_size, random_state=random_state, shuffle=True
         )
+
+            #Impute NaN using training data only
+        imputer = SimpleImputer(strategy='median')
+        X_train_imputed = imputer.fit_transform(X_train)
+        X_test_imputed = imputer.transform(X_test)
 
         #Scale feature if requested
         if scale_features:
@@ -135,8 +160,7 @@ class ModelTrainer:
             X_test = self.scaler.transform(X_test)
             logger.info(f"Features scaled using StandardScaler")
         else:
-            X_train = X_train.values
-            X_test =X_test.values
+            pass
 
         logger.info(f"Train: {X_train.shape[0]} rows, Test: {X_test.shape[0]} rows")
         logger.info(f"Features: {feature_cols}")
@@ -202,25 +226,29 @@ class ModelTrainer:
 
             mlflow.log_metrics(self.metrics)
 
+            try:
             #Log model to MLflow
-            if self.model_type == 'xgboost':
-                mlflow.xgboost.log_model(
-                    xgb_model=self.best_model,
-                    artifact_path="ev_model",
-                    registered_model_name="EV_Price_Predictor_XGBOOST"
-                )
-            else:
-                mlflow.sklearn.log_model(
-                    sk_model=self.best_model,
-                    artifact_path="ev_model",
-                    registered_model_name=f"EV_Price_Predictor_{self.model_type.upper()}",
-                    skops_trusted_types=None
-                )
+                if self.model_type == 'xgboost':
+                    mlflow.xgboost.log_model(
+                        xgb_model=self.best_model,
+                        artifact_path="ev_model",
+                        registered_model_name="EV_Price_Predictor_XGBOOST"
+                    )
+                else:
+                    mlflow.sklearn.log_model(
+                        sk_model=self.best_model,
+                        artifact_path="ev_model",
+                        registered_model_name=f"EV_Price_Predictor_{self.model_type.upper()}",
+                        skops_trusted_types=None
+                    )
+
+            except Exception as e:
+                logger.error(f"MLflow model logging failed: {e}")
 
             logger.info(f"Training complete. R2: {r2:.4f}, MAE: ${mae:.2f}")
             logger.info(f"Model log to MLflow with run_id: {self.run_id}")
 
-            return self.metrics
+        return self.metrics
 
     def save_model(self, filepath: str) -> None:
         if self.best_model is None:
@@ -295,6 +323,11 @@ def run_training_pipeline(
     print(f" Model saved to: {model_path}")
     print(f" MLflow Run ID: {trainer.run_id}")
     print(f" View in MLflow: mlflow ui")
+
+    try:
+        trainer.display_past_runs()
+    except Exception:
+        pass
 
     return trainer.get_model_info()
 
