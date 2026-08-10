@@ -16,6 +16,7 @@ import joblib
 from typing import Dict, Any, Optional, Tuple
 import json
 import logging
+import mlflow.xgboost
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -206,32 +207,32 @@ class ModelTrainer:
 
             return self.metrics
 
-def save_model(self, filepath: str) -> None:
-    if self.best_model is None:
-        raise ValueError("No model trained. Call train() first.")
-    filepath = Path(filepath)
-    filepath.parent.mkdir(parents=True, exist_ok=True)
+    def save_model(self, filepath: str) -> None:
+        if self.best_model is None:
+            raise ValueError("No model trained. Call train() first.")
+        filepath = Path(filepath)
+        filepath.parent.mkdir(parents=True, exist_ok=True)
 
-    #Save model
-    joblib.dump(self.best_model, filepath)
-    logger.info(f"Model saved to {filepath}")
+        #Save model
+        joblib.dump(self.best_model, filepath)
+        logger.info(f"Model saved to {filepath}")
 
-    #Save scaler if used
-    if self.scaler is not None:
-        scaler_path = filepath.parent / "scaler.pkl"
-        joblib.dump(self.scaler, scaler_path)
-        logger.info(f"Scaler saved to {scaler_path}")
+        #Save scaler if used
+        if self.scaler is not None:
+            scaler_path = filepath.parent / "scaler.pkl"
+            joblib.dump(self.scaler, scaler_path)
+            logger.info(f"Scaler saved to {scaler_path}")
 
-def get_model_info(self) -> Dict:
-    if self.best_model is None:
-        return {"error": "No model trained yet"}
-    return {
-        "model_type": self.model_type,
-        "run_id": self.run_id,
-        "best_params": self.best_params,
-        "metrics": self.metrics,
-        "experiment_name": self.experiment_name
-    }
+    def get_model_info(self) -> Dict:
+        if self.best_model is None:
+            return {"error": "No model trained yet"}
+        return {
+            "model_type": self.model_type,
+            "run_id": self.run_id,
+            "best_params": self.best_params,
+            "metrics": self.metrics,
+            "experiment_name": self.experiment_name
+        }
 
 #Helper functions
 def run_training_pipeline(
