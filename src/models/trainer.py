@@ -69,6 +69,15 @@ class ModelTrainer:
                 'max_depth': 10,
                 'random_state': 42,
                 'n_jobs': -1
+            },
+            'xgboost': {
+                'n_estimators': 100,
+                'learning_rate': 0.1,
+                'max_depth': 5,
+                'random_state': 42,
+                'verbosity': 0,
+                'n_jobs': -1,
+                'tree_method': 'hist'
             }
         }
         return defaults.get(self.model_type, {})
@@ -101,7 +110,7 @@ class ModelTrainer:
         logger.info("Preparing data for training...")
 
         #Separate features and target
-        exclude_cols = [target_col, 'Manufacture', 'Model', 'VehicleID', 'Color', 'Country_of_Manufature']
+        exclude_cols = [target_col, 'Manufacturer', 'Model', 'Vehicle_ID', 'Color', 'Country_of_Manufacture']
         feature_cols = [col for col in df.columns if col not in exclude_cols and df[col].dtype in ['int64', 'float64']]
 
         X = df[feature_cols]
@@ -139,66 +148,66 @@ class ModelTrainer:
         logger.info(f"Training {self.model_type} model...")
 
         if params is None:
-            params = self.get_default_params()
+            params = self._get_default_params()
 
         #Start MLflow run
-        with mlflow.start_rub(rub_name=f"{self.model_type}_training") as run:
+        with mlflow.start_run(run_name=f"{self.model_type}_training") as run:
             self.run_id = run.info.run_id
             logger.info(f"MLflow Run ID: {self.run_id}")
 
-        #Log parameters
-        mlflow.log_params(params)
+            #Log parameters
+            mlflow.log_params(params)
 
-        if use_grid_search and self._get_param_grid():
-            logger.info("Performing GridSearchCV for hyperparameter tuning...")
-            model = self._get_model()
-            grid = self._get_param_grid()
-            grid_search = GridSearchCV(
-                model, grid, cv=5, scoring='r2', n_jobs=-1, verbose=1
+            if use_grid_search and self._get_param_grid():
+                logger.info("Performing GridSearchCV for hyperparameter tuning...")
+                model = self._get_model()
+                grid = self._get_param_grid()
+                grid_search = GridSearchCV(
+                    model, grid, cv=5, scoring='r2', n_jobs=-1, verbose=1
+                )
+                grid_search.fit(X_train, y_train)
+
+                self.best_model = grid_search.best_estimator_
+                self.best_params = grid_search.best_params_
+                logger.info(f"Best params from GridSearch: {self.best_params}")
+
+                #Log best params to MLflow
+                mlflow.log_params(self.best_params)
+            else:
+                model = self._get_model(params)
+                model.fit(X_train, y_train)
+                self.best_model = model
+                self.best_params = params
+
+            #Make predictions
+            y_pred = self.best_model.predict(X_test)
+
+            #Calculate metices
+            r2 = r2_score(y_test, y_pred)
+            mae = mean_absolute_error(y_test, y_pred)
+            rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+
+            self.metrics = {
+                'r2': r2,
+                'mae': mae,
+                'rmse': rmse
+            }
+
+            #Log model to MLflow
+            mlflow.sklearn.log_model(
+                self.best_model,
+                artifact_path="ev_model",
+                registered_model_name=f"EV_Price_Predictor_{self.model_type.upper()}"
             )
-            grid_search.fit(X_train, y_train)
 
-            self.best_model = grid_search.best_estimator_
-            self.best_params = grid_search.best_params_
-            logger.info(f"Best params from GridSearch: {self.best_params}")
+            logger.info(f"Training complete. R2: {r2:.4f}, MAE: ${mae:.2f}")
+            logger.info(f"Model log to MLflow with run_id: {self.run_id}")
 
-            #Log best params to MLflow
-            mlflow.log_params(self.best_params)
-        else:
-            model = self._get_model(params)
-            model.fit(X_train, y_train)
-            self.best_model = model
-            self.best_params = params
-
-        #Make predictions
-        y_pred = self.best_model.predict(X_test)
-
-        #Calculate metices
-        r2 = r2_score(y_test, y_pred)
-        mae = mean_absolute_error(y_test, y_pred)
-        rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-
-        self.metrices = {
-            'r2': r2,
-            'mae': mae,
-            'rmse': rmse
-        }
-
-        #Log model to MLflow
-        mlflow.sklearn.log_model(
-            self.best_model,
-            artifact_path="ev_model",
-            registered_model_name=f"EV_Price_Predictor_{self.model_type.upper()}"
-        )
-
-        logger.info(f"Training complete. R2: {r2:.4f}, MAE: ${mae:.2f}")
-        logger.info(f"Model log to MLflow with run_id: {self.run_id}")
-
-        return self.metrices
+            return self.metrics
 
 def save_model(self, filepath: str) -> None:
 
-    if self.model is None:
+    if self.best_model is None:
         raise ValueError("No model trained. Call train() first.")
     
     filepath = Path(filepath)
@@ -223,7 +232,7 @@ def get_model_info(self) -> Dict:
         "model_type": self.model_type,
         "run_id": self.run_id,
         "best_params": self.best_params,
-        "metices": self.metices,
+        "metrics": self.metrics,
         "experiment_name": self.experiment_name
     }
 
@@ -233,7 +242,7 @@ def run_training_pipeline(
     model_type: str = "xgboost",
     experiment_name: str = "EV_Price_Prediction",
     use_grid_search: bool = False,
-    output_dir: str = "model/artifacts"
+    output_dir: str = "models/artifacts"
 ) -> Dict:
     from src.data.pipeline import DataPipeline
 
@@ -250,7 +259,7 @@ def run_training_pipeline(
     )
 
     #Prepare data
-    X_train, y_train, X_test, y_test, features = trainer.prepare_data(
+    X_train, X_test, y_train, y_test, features = trainer.prepare_data(
         pipeline.df,
         scale_features=True
     )
@@ -264,7 +273,7 @@ def run_training_pipeline(
 
     #Save model locally
     model_path = Path(output_dir) / f"{model_type}_model.pkl"
-    trainer.save_modl(str(model_path))
+    trainer.save_model(str(model_path))
 
     print(f"Training complete for {model_type.upper()}!")
     print(f" R2: {metrics['r2']:.4f}")
@@ -280,15 +289,11 @@ def run_training_pipeline(
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:
-        print("Usage: python -m src.model.trainer <path_to_raw_csv> [model_type]")
-        print("Example: python -m src.model.trainer data/raw/electric_vehicles_dataset.csv xgboost")
+        print("Usage: python -m src.models.trainer <path_to_raw_csv> [model_type]")
+        print("Example: python -m src.models.trainer data/raw/electric_vehicles_dataset.csv xgboost")
         sys.exit(1)
 
     data_path = sys.argv[1]
     model_type = sys.argv[2] if len(sys.argv) > 2 else "xgboost"
 
     run_training_pipeline(data_path, model_type=model_type, use_grid_search=False)
-
-
-
-            
