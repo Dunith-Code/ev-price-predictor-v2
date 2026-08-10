@@ -211,10 +211,10 @@ class ModelTrainer:
                     skops_trusted_types=None
                 )
 
-                logger.info(f"Training complete. R2: {r2:.4f}, MAE: ${mae:.2f}")
-                logger.info(f"Model log to MLflow with run_id: {self.run_id}")
+            logger.info(f"Training complete. R2: {r2:.4f}, MAE: ${mae:.2f}")
+            logger.info(f"Model log to MLflow with run_id: {self.run_id}")
 
-                return self.metrics
+            return self.metrics
 
     def save_model(self, filepath: str) -> None:
         if self.best_model is None:
