@@ -2,9 +2,6 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-import os
-os.environ["MLFLOW_ALLOW_FILE_STORE"] = "true"
-
 import pandas as pd
 import numpy as np
 import mlflow
@@ -20,7 +17,6 @@ from typing import Dict, Any, Optional, Tuple
 import json
 import logging
 import mlflow.xgboost
-from sklearn.impute import SimpleImputer
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -31,7 +27,7 @@ class ModelTrainer:
             self,
             experiment_name: str = "EV_Price_Prediction",
             model_type: str = "xgboost",
-            tracking_uri: Optional[str] = None
+            tracking_uri: Optional[str] = "sqlite:///mlflow.db"
         ):
 
         self.experiment_name = experiment_name
@@ -121,14 +117,16 @@ class ModelTrainer:
         X = df[feature_cols]
         y = df[target_col]
 
+        X = X.replace([np.inf, -np.inf], np.nan)
+        nan_counts = X.isna().sum()
+        if nan_counts.any():
+            logger.warning(f"NaNs found in features, imputing with column median:\n{nan_counts[nan_counts > 0]}")
+            X = X.fillna(X.median())
+
         #Split
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=test_size, random_state=random_state, shuffle=True
         )
-
-        imputer = SimpleImputer(strategy='median')
-        X_train = imputer.fit_transform(X_train)
-        X_test = imputer.transform(X_test)
 
         #Scale feature if requested
         if scale_features:
