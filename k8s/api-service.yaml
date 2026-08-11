@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ev-predictor-service
+  namespace: ev-predictor
+spec:
+  selector:
+    app: ev-predictor-api
+  ports:
+  - port: 80
+    targetPort: 8000
+  type: LoadBalancer   # Use NodePort if LoadBalancer isn't available

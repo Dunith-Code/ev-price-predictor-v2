@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ev-predictor-config
+  namespace: ev-predictor
+data:
+  DATABASE_URL: "postgresql://postgres:dunith@db:5432/ev_predictor"
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: "ev_predictor"
+  DATABASE_USER: "postgres"
+  DATABASE_PASSWORD: "dunith"

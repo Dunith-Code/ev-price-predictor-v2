@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ev-predictor-api
+  namespace: ev-predictor
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ev-predictor-api
+  template:
+    metadata:
+      labels:
+        app: ev-predictor-api
+    spec:
+      containers:
+      - name: api
+        image: your-dockerhub/ev-predictor:latest   # <-- CHANGE TO YOUR IMAGE
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+        env:
+        # Build the DATABASE_URL from secrets and configmap
+        - name: DATABASE_URL
+          value: "postgresql://$(DATABASE_USER):$(DATABASE_PASSWORD)@postgres-service:5432/$(DATABASE_NAME)"
+        - name: DATABASE_USER
+          valueFrom:
+            secretKeyRef:
+              name: ev-predictor-secret
+              key: DATABASE_USER
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ev-predictor-secret
+              key: DATABASE_PASSWORD
+        - name: DATABASE_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: ev-predictor-config
+              key: DATABASE_NAME
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
