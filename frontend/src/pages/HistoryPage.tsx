@@ -9,7 +9,7 @@ const HistoryPage: React.FC = () => {
     useEffect(() => {
         const fetchHistory =async () => {
             try {
-                const data = await getHistory(20);
+                const data = await getHistory(100);
                 setHistory(data.predictions || []);
             } catch (err) {
                 setError('Failed to load history');
@@ -20,27 +20,48 @@ const HistoryPage: React.FC = () => {
         fetchHistory();
     }, []);
 
-    if (loading) return <p>Loading history...</p>;
-    if (error) return <p className="error">{error}</p>;
+    if (loading) return <p style={{ padding: '24px', textAlign: 'center' }}>Loading history...</p>;
+    if (error) return <p className="error-box" style={{ margin: '24px'}}>{error}</p>;
 
     return (
-        <div className="container" style={{ maxWidth: '700px', margin: '0 auto', padding: '20px' }}>
-            <h1>Prediction History</h1>
-            {history.length === 0? (
-                <p>No prediction yet. Go back and predict one!</p>
-            ) : (
-                <ul className="history-list">
-                    {history.map((item) => (
-                        <li key={item.id}>
-                            <span>
-                                {item.brand} {item.model_name}
-                            </span>
-                            <span className="price">${item.predicted_price?.toFixed(2)}</span>
-                            <span className="date">${new Date(item.created_at).toLocaleString()}</span>
-                        </li>
-                    ))}
-                </ul>
-            )}
+        <div className="dashboard">
+            <div className="card full-width">
+                <h2>Full Prediction History</h2>
+                {history.length === 0 ? (
+                    <p>No predictions yet</p>
+                ) : (
+                    <table className="history-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Brand</th>
+                                <th>Model</th>
+                                <th>Battery (kWh)</th>
+                                <th>Range (km)</th>
+                                <th>Safety</th>
+                                <th>Year</th>
+                                <th>Price (USD)</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {history.map((item: any) => (
+                                <tr key={item.id}>
+                                    <td>{item.id}</td>
+                                    <td>{item.brand}</td>
+                                    <td>{item.model_name}</td>
+                                    <td>{item.battery_capacity}</td>
+                                    <td>{item.range_km}</td>
+                                    <td>{item.safety_rating}</td>
+                                    <td>{item.year}</td>
+                                    <td>${item.predicted_price?.toFixed(2)}</td>
+                                    <td>{new Date(item.created_at).toLocaleString()}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
+            </div>
         </div>
     );
 };
